@@ -76,11 +76,6 @@ def load_dataset(path: str | Path, *, deduplicate: bool = True) -> pd.DataFrame:
     return frame
 
 
-def load_official_dataset(path: str | Path) -> pd.DataFrame:
-    """Đọc tập dữ liệu chính thức mà không tự động loại bỏ duplicate."""
-    return load_dataset(path, deduplicate=False)
-
-
 def compute_split_overlap(left_frame: pd.DataFrame, right_frame: pd.DataFrame) -> dict[str, int]:
     """Đếm số lượng văn bản bị trùng lặp giữa hai split."""
     left_raw = set(left_frame["text"])

@@ -60,7 +60,7 @@ def create_pipeline(max_features: int = 50_000) -> Pipeline:
     )
 
 
-def evaluate_baseline(pipeline: Pipeline, texts, labels) -> dict:
+def evaluate_baseline(pipeline: Pipeline, texts, labels, return_raw: bool = False) -> dict:
     """Đánh giá toàn diện mô hình baseline bằng cùng bộ metrics chuẩn."""
     y_true = np.asarray(labels, dtype=int)
     predictions = pipeline.predict(texts)
@@ -82,7 +82,7 @@ def evaluate_baseline(pipeline: Pipeline, texts, labels) -> dict:
         zero_division=0,
     )
 
-    return {
+    metrics = {
         "log_loss": float(log_loss(y_true, probabilities, labels=[0, 1])),
         "accuracy": float(accuracy_score(y_true, predictions)),
         "macro_f1": float(report["macro avg"]["f1-score"]),
@@ -93,6 +93,10 @@ def evaluate_baseline(pipeline: Pipeline, texts, labels) -> dict:
         "classification_report": report,
         "confusion_matrix": confusion_matrix(y_true, predictions).tolist(),
     }
+    if return_raw:
+        metrics["probabilities"] = probabilities
+        metrics["raw_labels"] = y_true
+    return metrics
 
 
 def extract_top_features(

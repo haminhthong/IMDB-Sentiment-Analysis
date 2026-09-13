@@ -53,11 +53,9 @@ def parse_args() -> argparse.Namespace:
 def evaluate_baseline_test(model_path: Path, test_frame) -> dict:
     """Đánh giá pipeline TF-IDF + Logistic Regression trên tập Test."""
     pipeline = joblib.load(model_path)
-    metrics = evaluate_baseline(pipeline, test_frame["text"], test_frame["label"].astype(int))
-    probabilities = pipeline.predict_proba(test_frame["text"])[:, 1]
-    metrics["probabilities"] = probabilities
-    metrics["raw_labels"] = test_frame["label"].to_numpy(dtype=int)
-    return metrics
+    return evaluate_baseline(
+        pipeline, test_frame["text"], test_frame["label"].astype(int), return_raw=True
+    )
 
 
 def evaluate_bilstm_test(checkpoint_path: Path, test_frame, device_name: str) -> dict:
