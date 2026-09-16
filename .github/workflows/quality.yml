@@ -17,6 +17,8 @@ jobs:
           cache: pip
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e ".[dev]"
+      - name: Compile Python sources
+        run: python -m compileall -q api.py app.py baseline.py compare_models.py evaluate.py load_test.py predict.py train.py sentiment scripts tests
       - name: Ruff static checks
         run: python -m ruff check .
       - name: Ruff format check

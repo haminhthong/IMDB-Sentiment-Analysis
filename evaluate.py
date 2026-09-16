@@ -17,7 +17,7 @@ from baseline import evaluate_baseline
 from sentiment.artifacts import save_json, save_reliability_diagram
 from sentiment.config import ExperimentConfig
 from sentiment.data import IMDBDataset
-from sentiment.data_validation import load_dataset
+from sentiment.data_validation import load_dataset, validate_official_test_independence
 from sentiment.engine import evaluate_model
 from sentiment.model import BiLSTMSentimentClassifier
 from sentiment.text import Vocabulary
@@ -26,6 +26,11 @@ from sentiment.utils import configure_utf8_output, select_device
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Đánh giá mô hình CineSentiment trên tập Test")
+    parser.add_argument(
+        "--train-data",
+        default="data/raw/train.csv",
+        help="Đường dẫn tập Train để kiểm tra Test không bị trùng dữ liệu.",
+    )
     parser.add_argument(
         "--test-data",
         default="data/raw/test.csv",
@@ -102,9 +107,18 @@ def evaluate_bilstm_test(checkpoint_path: Path, test_frame, device_name: str) ->
 def main() -> None:
     configure_utf8_output()
     args = parse_args()
+    train_path = Path(args.train_data)
+    if not train_path.is_file() and Path("train.csv").is_file():
+        train_path = Path("train.csv")
+
     test_path = Path(args.test_data)
     if not test_path.is_file() and Path("test.csv").is_file():
         test_path = Path("test.csv")
+
+    if not train_path.is_file():
+        raise FileNotFoundError(
+            f"Không tìm thấy tập Train để kiểm tra độc lập của Test: {train_path}"
+        )
 
     checkpoint_path = Path(args.checkpoint)
     if not checkpoint_path.is_file():
@@ -113,12 +127,15 @@ def main() -> None:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    train_frame = load_dataset(train_path)
     test_frame = load_dataset(test_path, deduplicate=False)
+    overlap = validate_official_test_independence(train_frame, test_frame)
 
     print("=" * 60)
     print("*** ĐÁNH GIÁ TRÊN TẬP TEST CHÍNH THỨC ***")
     print("=" * 60)
     print(f"-> Tập Test: {test_path} ({len(test_frame):,} mẫu)")
+    print(f"-> Kiểm tra overlap Train/Test: {overlap['overlap_count']} mẫu")
     print(f"-> Model: {checkpoint_path}")
     print("-" * 60)
 

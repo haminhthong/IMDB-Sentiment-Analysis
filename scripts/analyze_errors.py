@@ -17,7 +17,7 @@ from typing import Any
 
 import pandas as pd
 
-from sentiment.data_validation import load_dataset
+from sentiment.data_validation import load_dataset, validate_official_test_independence
 from sentiment.inference import load_predictor
 from sentiment.utils import configure_utf8_output
 
@@ -194,6 +194,11 @@ def analyze_errors_on_dataset(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Phân tích lỗi mô hình theo các lát cắt NLP")
+    parser.add_argument(
+        "--train-data",
+        default="data/raw/train.csv",
+        help="Đường dẫn tập Train để kiểm tra Test không bị trùng dữ liệu.",
+    )
     parser.add_argument("--checkpoint", default="artifacts/model.pt")
     parser.add_argument("--data", "--test-data", dest="data", default="data/raw/test.csv")
     parser.add_argument("--max-samples", type=int, default=2500)
@@ -204,6 +209,10 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     configure_utf8_output()
     args = parse_args()
+    train_path = Path(args.train_data)
+    if not train_path.is_file() and Path("train.csv").is_file():
+        train_path = Path("train.csv")
+
     data_path = Path(args.data)
     if not data_path.is_file() and Path("test.csv").is_file():
         data_path = Path("test.csv")
@@ -211,15 +220,22 @@ def main() -> None:
     checkpoint_path = Path(args.checkpoint)
     if not checkpoint_path.is_file():
         raise FileNotFoundError(f"Không tìm thấy checkpoint: {checkpoint_path}")
+    if not train_path.is_file():
+        raise FileNotFoundError(
+            f"Không tìm thấy tập Train để kiểm tra độc lập của Test: {train_path}"
+        )
 
     predictor = load_predictor(checkpoint_path)
+    train_frame = load_dataset(train_path)
     df = load_dataset(data_path, deduplicate=False)
+    overlap = validate_official_test_independence(train_frame, df)
 
     print("=" * 65)
     print("*** PHÂN TÍCH LỖI MÔ HÌNH (ERROR ANALYSIS) ***")
     print("=" * 65)
     print(f"-> Checkpoint : {checkpoint_path}")
     print(f"-> Dữ liệu    : {data_path} ({len(df):,} mẫu)")
+    print(f"-> Kiểm tra overlap Train/Test: {overlap['overlap_count']} mẫu")
     print("-" * 65)
 
     report = analyze_errors_on_dataset(predictor, df, max_samples=args.max_samples)

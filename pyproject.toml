@@ -1,7 +1,7 @@
 [project]
 name = "cinesentiment"
 version = "1.0.0"
-description = "IMDB Sentiment Analysis: TF-IDF Baseline, BiLSTM, Temperature Calibration, and Serving"
+description = "IMDB sentiment classification with TF-IDF and BiLSTM"
 requires-python = ">=3.10"
 dependencies = [
   "numpy>=1.24,<3",
@@ -36,6 +36,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["sentiment*", "scripts*"]
+
+[tool.setuptools]
+py-modules = ["api", "app", "baseline", "compare_models", "evaluate", "load_test", "predict", "train"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

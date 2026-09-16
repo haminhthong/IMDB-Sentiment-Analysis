@@ -8,6 +8,7 @@ test_tmp/
 scratch/
 .venv/
 venv/
+*.egg-info/
 artifacts/*
 !artifacts/.gitkeep
 runs/

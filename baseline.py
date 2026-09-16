@@ -152,7 +152,7 @@ def main() -> None:
         max_vocabulary_size=args.max_features,
     )
     train_source = load_dataset(train_path)
-    train_frame, validation_frame, calibration_frame = split_development_frame(train_source, config)
+    train_frame, validation_frame, _ = split_development_frame(train_source, config)
 
     print("=" * 60)
     print("*** HUẤN LUYỆN BASELINE: TF-IDF + LOGISTIC REGRESSION ***")
