@@ -7,7 +7,30 @@ pytest.importorskip("httpx")
 
 from fastapi.testclient import TestClient
 
+import api
 from api import app
+from sentiment.inference import PredictionResult
+
+
+class FakePredictor:
+    """Predictor nhỏ để test API không phụ thuộc checkpoint ngoài repository."""
+
+    def predict(self, text: str) -> PredictionResult:
+        return PredictionResult(
+            label="Positive",
+            probability=0.75,
+            token_count=len(text.split()),
+        )
+
+    def predict_batch(self, texts: list[str]) -> list[PredictionResult]:
+        return [self.predict(text) for text in texts]
+
+
+@pytest.fixture(autouse=True)
+def mock_predictor(monkeypatch):
+    """Thay predictor thật bằng fake để test chỉ tập trung vào HTTP contract."""
+    monkeypatch.setattr(api, "get_predictor", lambda: FakePredictor())
+
 
 client = TestClient(app)
 
