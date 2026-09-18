@@ -24,7 +24,8 @@ class PredictionResult:
 
     Attributes:
         label: Nhãn cảm xúc ('Positive' hoặc 'Negative').
-        probability: Xác suất lớp Positive đã qua Temperature Scaling.
+        probability: Xác suất lớp Positive; BiLSTM đã hiệu chuẩn bằng Temperature
+            Scaling, còn baseline dùng xác suất từ Logistic Regression.
         truncated: Cờ đánh dấu câu bị cắt bớt do vượt max_length.
         oov_rate: Tỷ lệ từ ngoài từ điển (OOV Rate).
         token_count: Tổng số token của văn bản gốc.

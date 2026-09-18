@@ -23,7 +23,7 @@ Với một review phim tiếng Anh, hệ thống dự đoán một trong hai nh
 - `Negative` tương ứng với `label = 0`.
 - `Positive` tương ứng với `label = 1`.
 
-Mỗi tệp CSV đầu vào phải có đúng hai cột logic bắt buộc là `text` và `label`. Bộ tải dữ liệu kiểm tra giá trị rỗng, nhãn ngoài `{0, 1}`, bản ghi trùng nội dung và bản ghi trùng nhưng khác nhãn.
+Mỗi tệp CSV đầu vào phải có ít nhất hai cột bắt buộc là `text` và `label`; các cột khác sẽ được bỏ qua. Bộ tải dữ liệu kiểm tra giá trị rỗng, nhãn ngoài `{0, 1}`, bản ghi trùng nội dung và bản ghi trùng nhưng khác nhãn.
 
 ### Phạm vi
 
@@ -65,12 +65,15 @@ flowchart TD
 
     C --> Q[validate_official_test_independence]
     D --> Q
-    Q --> R[evaluate.py trên Test chính thức]
+    Q --> R{evaluate.py với một checkpoint}
     N --> R
     O --> R
-    R --> S[test_metrics.json + test_reliability_diagram.png]
+    R --> S[artifacts/test_metrics.json + test_reliability_diagram.png]
 
-    S --> T[analyze_errors.py: linguistic, length, OOV slices]
+    Q --> T[analyze_errors.py trên Test đã audit]
+    N --> T
+    O --> T
+    T --> V[artifacts/error_analysis.json]
     N --> U[predict.py / FastAPI / Streamlit]
     O --> U
 ```
@@ -93,10 +96,12 @@ Các metrics được tính trong code, không hard-code vào README:
 
 - Phân loại: Accuracy, Macro-F1, ROC-AUC, PR-AUC.
 - Xác suất: Log Loss, Brier Score, ECE với 10 bins.
-- Trực quan: training history, confusion matrix và reliability diagram.
+- BiLSTM: training history, confusion matrix và reliability diagram validation.
+- Đánh giá Test: reliability diagram và `test_metrics.json` theo checkpoint được chọn.
+- Baseline: `validation_metrics.json` và `explainability.json`, không tạo plot huấn luyện.
 - So sánh: số tham số và latency CPU đo trên cùng một câu mẫu.
 
-Artifact do các lệnh tạo ra nằm trong `artifacts/`, được gitignore để tránh đưa model và báo cáo sinh tự động vào source repository. Các file thường gặp là `model.pt`, `validation_metrics.json`, `training_history.png`, `confusion_matrix.png`, `reliability_diagram.png`, `test_metrics.json`, `test_reliability_diagram.png`, `model_comparison.md` và `error_analysis.json`.
+Artifact do các lệnh tạo ra nằm trong `artifacts/`, được gitignore để tránh đưa model và báo cáo sinh tự động vào source repository. BiLSTM tạo `model.pt`, `validation_metrics.json`, `training_history.png`, `confusion_matrix.png` và `reliability_diagram.png`. Baseline tạo `baseline/model.joblib`, `baseline/validation_metrics.json` và `baseline/explainability.json`. `evaluate.py` tạo `test_metrics.json` và `test_reliability_diagram.png`; `compare_models.py` tạo `model_comparison.md`; `analyze_errors.py` tạo `error_analysis.json`.
 
 ## Cấu trúc thư mục dự án
 
@@ -112,10 +117,13 @@ Artifact do các lệnh tạo ra nằm trong `artifacts/`, được gitignore đ
 ├── train.py                       # Huấn luyện BiLSTM và calibration
 ├── MODEL_CARD.md                  # Phạm vi, giới hạn và mô tả model
 ├── pyproject.toml                 # Dependency, CLI entry point, Ruff, pytest
-├── requirements.txt               # Dependency runtime tương thích
+├── requirements.txt               # Danh sách dependency pip; không thay pyproject
+├── .gitignore                     # Loại dữ liệu/model/cache sinh tự động
+├── .gitattributes                 # Quy ước newline của repository
 ├── .env.example                   # CHECKPOINT_PATH dùng chung cho API/app
 ├── .github/workflows/quality.yml  # CI: install, compile, Ruff, pytest
 ├── sentiment/
+│   ├── __init__.py                # Khai báo package sentiment
 │   ├── artifacts.py               # Lưu checkpoint, JSON và biểu đồ
 │   ├── calibration.py             # Temperature, Brier, ECE, Log Loss
 │   ├── config.py                  # ExperimentConfig và validation
@@ -127,11 +135,12 @@ Artifact do các lệnh tạo ra nằm trong `artifacts/`, được gitignore đ
 │   ├── text.py                    # Tokenizer, vocabulary, encode/padding
 │   └── utils.py                   # Seed, device và latency
 ├── scripts/
+│   ├── __init__.py                # Cho phép chạy scripts bằng python -m
 │   ├── analyze_errors.py          # Phân tích lỗi theo Test đã audit
 │   ├── create_smoke_dataset.py    # Tạo fixture nhỏ cho kiểm thử thủ công
 │   └── download_imdb.py           # Tải và chuyển IMDB thành CSV
 ├── tests/                         # Unit test cho API, data, model, CLI helper
-│   └── fixtures/imdb_smoke/        # Fixture nhỏ dùng trong test
+│   └── fixtures/imdb_smoke/       # Fixture smoke tạo thủ công
 ├── data/raw/                      # train.csv/test.csv; không commit dữ liệu
 ├── data/processed/                # Chỗ dành cho dữ liệu xử lý thêm
 ├── data/README.md                 # Quy ước lưu dữ liệu và fixture
@@ -183,7 +192,7 @@ Kết quả là `data/raw/train.csv` và `data/raw/test.csv`. Lệnh không ghi 
 python -m scripts.create_smoke_dataset
 ```
 
-Fixture smoke chỉ dùng để kiểm tra thủ công, không đại diện cho chất lượng IMDB và không thay thế Test chính thức.
+Fixture smoke chỉ dùng để kiểm tra thủ công, không đại diện cho chất lượng IMDB và không thay thế Test chính thức. Unit test CI tự tạo dữ liệu tạm trong `tmp_path` hoặc dùng mock, không tải bộ IMDB.
 
 ### 2. Huấn luyện baseline
 
@@ -223,7 +232,7 @@ Lệnh đọc `artifacts/baseline/` và `artifacts/`, in bảng so sánh rồi g
 python evaluate.py --checkpoint artifacts/model.pt
 ```
 
-Lệnh mặc định yêu cầu cả `data/raw/train.csv` và `data/raw/test.csv`. Có thể truyền đường dẫn khác bằng `--train-data`, `--test-data`, `--checkpoint`, `--output-dir`. Trước khi tính metrics, code kiểm tra overlap Train/Test và dừng nếu có rò rỉ.
+Lệnh mặc định yêu cầu cả `data/raw/train.csv` và `data/raw/test.csv`. Có thể truyền đường dẫn khác bằng `--train-data`, `--test-data`, `--checkpoint`, `--output-dir`. Mỗi lần chạy đánh giá đúng một checkpoint; truyền `artifacts/model.pt` cho BiLSTM hoặc `artifacts/baseline/model.joblib` cho baseline. Trước khi tính metrics, code kiểm tra overlap Train/Test và dừng nếu có rò rỉ.
 
 ### 6. Phân tích lỗi
 
@@ -261,6 +270,12 @@ Hoặc:
 
 ```bash
 uvicorn api:app --host 127.0.0.1 --port 8000
+```
+
+Sau khi API đang chạy, có thể đo tải thủ công bằng script chỉ dùng thư viện chuẩn:
+
+```bash
+python load_test.py --url http://127.0.0.1:8000/predict --users 10 --requests 50
 ```
 
 Các endpoint hiện có:
@@ -310,7 +325,7 @@ python -m ruff format --check .
 python -m pytest -q
 ```
 
-Workflow `.github/workflows/quality.yml` chạy trên Python 3.11 ở mỗi `push` và `pull_request`, theo thứ tự cài dependency, compile source, Ruff static check, Ruff format check và unit test. CI không cần dữ liệu IMDB hay checkpoint vì test suite dùng fixture nhỏ và mock ở nơi cần thiết.
+Workflow `.github/workflows/quality.yml` chạy trên Python 3.11 ở mỗi `push` và `pull_request`, theo thứ tự cài dependency, compile source, Ruff static check, Ruff format check và unit test. CI không cần dữ liệu IMDB hay checkpoint: test suite tự tạo dữ liệu tạm và mock predictor API ở nơi cần thiết.
 
 ## Biến môi trường
 
@@ -320,13 +335,13 @@ File `.env.example` chỉ mô tả biến mà code hiện tại thực sự đ�
 CHECKPOINT_PATH=artifacts/model.pt
 ```
 
-API và Streamlit đều có thể dùng biến này; nếu không đặt, chúng dùng checkpoint mặc định tương ứng. Không commit dữ liệu, checkpoint hoặc báo cáo sinh tự động vào source repository.
+API và Streamlit đều đọc biến môi trường này; file `.env.example` chỉ là mẫu, không được tự động nạp. Nếu không đặt, chúng dùng checkpoint mặc định `artifacts/model.pt`. Không commit dữ liệu, checkpoint hoặc báo cáo sinh tự động vào source repository.
 
 ## Giới hạn
 
 - Mô hình chỉ được huấn luyện cho tiếng Anh và miền review phim IMDB.
 - Sarcasm, phủ định kép, cảm xúc hỗn hợp và đảo chiều ở cuối review có thể gây sai.
-- Review dài hơn 256 token có thể bị cắt; token ngoài vocabulary trở thành `<UNK>`.
+- Với BiLSTM, review dài hơn 256 token có thể bị cắt; token ngoài vocabulary trở thành `<UNK>`. Baseline TF-IDF không dùng padding/truncation của BiLSTM.
 - Metrics chỉ có ý nghĩa sau khi chạy trên dữ liệu IMDB chính thức; fixture smoke không dùng để báo cáo chất lượng.
 
 ## Giấy phép

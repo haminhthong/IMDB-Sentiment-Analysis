@@ -16,7 +16,7 @@ CHECKPOINT_PATH = os.getenv("CHECKPOINT_PATH", "artifacts/model.pt")
 
 app = FastAPI(
     title=APP_NAME,
-    description="REST API phục vụ phân loại cảm xúc đánh giá phim IMDB với xác suất hiệu chuẩn.",
+    description="REST API phục vụ phân loại cảm xúc đánh giá phim IMDB.",
     version="1.0.0",
 )
 
@@ -60,7 +60,10 @@ class PredictionResponse(BaseModel):
 
     label: str = Field(description="Nhãn dự đoán: 'Positive' hoặc 'Negative'.")
     probability: float = Field(
-        description="Xác suất thuộc lớp Positive đã qua Temperature Scaling."
+        description=(
+            "Xác suất lớp Positive; BiLSTM dùng Temperature Scaling, "
+            "baseline trả xác suất từ Logistic Regression."
+        )
     )
     truncated: bool = Field(description="Cờ đánh dấu câu bị cắt bớt do vượt max_length.")
     oov_rate: float = Field(description="Tỷ lệ từ ngoài từ điển (OOV Rate).")
